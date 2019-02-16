@@ -1,10 +1,9 @@
 import store from '../../config/store';
-import { SPRITE_SIZE } from '../../config/constants';
+import { SPRITE_SIZE, MAP_WIDTH, MAP_HEIGHT } from '../../config/constants';
 
 export default function handleAction(player) {
 
-	function getNewPosition(direction) {
-		const oldPos = store.getState().player.position;
+	function getNewPosition(oldPos, direction) {
 		switch(direction) {
 			case 'WEST':
 				return [ oldPos[0]-SPRITE_SIZE, oldPos[1] ];
@@ -14,29 +13,79 @@ export default function handleAction(player) {
 				return [ oldPos[0]+SPRITE_SIZE, oldPos[1] ];
 			case 'SOUTH':
 				return [ oldPos[0], oldPos[1]+SPRITE_SIZE ];
+			default:
+				return [ oldPos[0], oldPos[1] ];
 		}
 	}
 
-	function dispatchMove(direction) {
+	function getWalkIndex() {
+		let walkIndex = store.getState().player.walkIndex;
+		return walkIndex >= 7 ? 0 : walkIndex + 1;
+	}
+
+	function getSpriteLocation(direction, walkIndex) {
+		switch(direction) {
+			case 'WEST':
+				return `${SPRITE_SIZE*walkIndex}px ${SPRITE_SIZE*2}px`;
+			case 'NORTH':
+				return `${SPRITE_SIZE*walkIndex}px ${SPRITE_SIZE*3}px`;
+			case 'EAST':
+				return `${SPRITE_SIZE*walkIndex}px ${SPRITE_SIZE*1}px`;
+			case 'SOUTH':
+				return `${SPRITE_SIZE*walkIndex}px ${SPRITE_SIZE*0}px`;
+			default:
+				return 
+		}
+	}
+
+	function observeBoundaries(newPos) {
+		return (newPos[0] >= 0 && newPos[0] <= MAP_WIDTH - SPRITE_SIZE) &&
+					 (newPos[1] >= 0 && newPos[1] <= MAP_HEIGHT - SPRITE_SIZE);
+	}
+
+	function observeImpassable(newPos) {
+		const tiles = store.getState().map.tiles;
+		const col = Math.round(newPos[0] / SPRITE_SIZE);
+		const row = Math.round(newPos[1] / SPRITE_SIZE);
+		console.log(row, col)
+		const nextTile = tiles[row][col];
+		return nextTile < 5;
+	}
+
+	function dispatchMove(newPos, direction) {
+		const walkIndex = getWalkIndex();
 		store.dispatch({
 			type: 'MOVE_PLAYER',
 			payload: {
-				position: getNewPosition(direction)
+				position: newPos,
+				direction,
+				walkIndex,
+				spriteLocation: getSpriteLocation(direction, walkIndex),
 			}
 		})
-	} 
+	}
+
+	function attemptMove(direction) {
+		const oldPos = store.getState().player.position;
+		const newPos = getNewPosition(oldPos, direction);
+		if(observeBoundaries(newPos) && observeImpassable(newPos)) {
+			dispatchMove(newPos, direction);
+		}
+	}
 
 	function handleKeyDown(e) {
 		e.preventDefault();
 		switch(e.keyCode) {
 			case 37:
-				return dispatchMove('WEST');
+				return attemptMove('WEST');
 			case 38:
-				return dispatchMove('NORTH');
+				return attemptMove('NORTH');
 			case 39:
-				return dispatchMove('EAST');
+				return attemptMove('EAST');
 			case 40:
-				return dispatchMove('SOUTH');
+				return attemptMove('SOUTH');
+			default:
+				return null;
 		}
 	}
 
